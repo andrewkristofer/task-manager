@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: wpp_taskmanager_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password123
+      POSTGRES_DB: taskmanager
+    ports:
+      # Exposed on 15432 to bypass Windows Hyper-V port reservations
+      - "15432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d taskmanager"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: wpp_taskmanager_backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Connects to the 'db' container internally on default port 5432
+      - DATABASE_URL=postgresql://postgres:password123@db:5432/taskmanager
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: wpp_taskmanager_frontend
+    ports:
+      # Exposes the Nginx container port 80 to localhost:3000
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
